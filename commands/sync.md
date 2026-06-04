@@ -13,4 +13,4 @@ $EVOLVER sync $ARGUMENTS
 
 After it runs, summarize: how many assets were pulled/updated, any local-only (unpublished) assets it listed, and — if `--export` was given — where the `.gepx` archive was written.
 
-If the command reports the Proxy or node identity is missing, point the user to `/evolver:status` to diagnose.
+If it reports the node identity or Hub credentials are missing, point the user to `/evolver:status` and the README's *EvoMap Hub* section to diagnose.

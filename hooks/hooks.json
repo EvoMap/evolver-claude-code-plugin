@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/evolver-session-start.js\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\"",
             "timeout": 5
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/evolver-signal-detect.js\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/signal-detect.js\"",
             "timeout": 3
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/evolver-session-end.js\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-end.js\"",
             "timeout": 10
           }
         ]
