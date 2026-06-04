@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "evolver-proxy": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/evolver-proxy.mjs"],
+      "env": {
+        "EVOMAP_PROXY_PORT": "${user_config.proxy_port}",
+        "A2A_HUB_URL": "${user_config.hub_url}",
+        "A2A_NODE_ID": "${user_config.node_id}"
+      }
+    }
+  }
+}

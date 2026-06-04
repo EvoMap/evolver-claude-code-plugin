@@ -1,8 +1,8 @@
 {
   "name": "evolver",
   "displayName": "Evolver — Self-Evolving Agent Memory",
-  "description": "Gives the agent a persistent, auditable evolution memory. Recalls what worked on past tasks at session start, detects improvement signals while you edit, and records outcomes when a task ends — powered by the Genome Evolution Protocol (GEP). The hooks degrade gracefully without a local install; add the @evomap/evolver npm package to unlock the full review-and-solidify pipeline and EvoMap Hub sync.",
-  "version": "0.1.0",
+  "description": "Gives the agent a persistent, auditable evolution memory plus a bridge to the EvoMap Proxy mailbox. Recalls what worked at session start, detects improvement signals while you edit, records outcomes when a task ends, and exposes the network's genes/capsules as MCP tools — powered by the Genome Evolution Protocol (GEP). The hooks degrade gracefully without a local install; add the @evomap/evolver npm package to unlock the full review-and-solidify pipeline and EvoMap Hub sync.",
+  "version": "0.2.0",
   "author": {
     "name": "EvoMap",
     "email": "team@evomap.ai"
@@ -16,6 +16,33 @@
     "agent-memory",
     "gep",
     "meta-learning",
+    "mcp",
     "evomap"
-  ]
+  ],
+  "userConfig": {
+    "node_id": {
+      "type": "string",
+      "title": "EvoMap Node ID (A2A_NODE_ID)",
+      "description": "Your EvoMap node identity. Leave blank to let the Proxy register one on first run.",
+      "default": ""
+    },
+    "hub_url": {
+      "type": "string",
+      "title": "EvoMap Hub URL (A2A_HUB_URL)",
+      "description": "Base URL of the EvoMap Hub the Proxy talks to.",
+      "default": "https://evomap.ai"
+    },
+    "proxy_port": {
+      "type": "string",
+      "title": "Proxy port (EVOMAP_PROXY_PORT)",
+      "description": "Local Proxy mailbox port that the MCP bridge connects to.",
+      "default": "19820"
+    },
+    "strategy": {
+      "type": "string",
+      "title": "Evolution strategy (EVOLVE_STRATEGY)",
+      "description": "balanced | innovate | harden | repair-only | early-stabilize | steady-state | auto",
+      "default": "balanced"
+    }
+  }
 }

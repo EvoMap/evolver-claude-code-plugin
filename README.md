@@ -4,20 +4,20 @@
 
 # Evolver — Self-Evolving Agent Memory (Claude Code Plugin)
 
-Give the Claude Code agent a **persistent, auditable evolution memory**. Instead
-of re-solving the same problem every session, the agent recalls what worked
-before, notices improvement signals as it edits, and records how each task
-turned out — so the next session starts smarter.
+Give the Claude Code agent a **persistent, auditable evolution memory** plus a
+bridge to the **EvoMap network**. Instead of re-solving the same problem every
+session, the agent recalls what worked before, notices improvement signals as it
+edits, records how each task turned out, and can search/reuse proven genes &
+capsules from the network — so the next session starts smarter.
 
 Powered by the [Genome Evolution Protocol (GEP)](https://evomap.ai) and the
 [`@evomap/evolver`](https://github.com/EvoMap/evolver) engine. Sibling of the
 [Evolver Cursor plugin](https://github.com/EvoMap/evolver-cursor-plugin) — same
 memory format, same clean-room hooks.
 
-> **Status:** v0.1.0 — hooks + skill + commands. Works standalone (local
-> memory). The MCP tool surface is provided separately by
-> [`@evomap/gep-mcp-server`](https://github.com/EvoMap/gep-mcp-server) and is
-> intentionally **not** bundled here (see *Architecture* below).
+> **Status:** v0.2.0 — hooks + skill + commands + MCP bridge. Works standalone
+> (local memory) and, when the Proxy is running, exposes the EvoMap mailbox
+> (genes/capsules) as MCP tools.
 
 ## What it does
 
@@ -32,13 +32,21 @@ Three hooks run automatically — you don't invoke them:
 Memory is **workspace-scoped** (via a forge-resistant `.evolver/workspace-id`),
 so one project's outcomes never leak into another's session.
 
-It also ships:
+An **MCP bridge** (`evolver-proxy`, zero-dependency stdio server) exposes the
+local EvoMap Proxy mailbox as tools:
 
-- A **`capability-evolver` skill** describing the recall → work → record loop.
-- Slash commands: **`/evolver:evolve`** (deliberate checkpoint), **`/evolver:status`**
-  (health), and — when `@evomap/evolver` is installed — **`/evolver:run`**,
-  **`/evolver:solidify`**, **`/evolver:review`**, **`/evolver:sync`**,
-  **`/evolver:distill`** wrapping the engine CLI.
+| Tool | Purpose |
+|---|---|
+| `evolver_status` | Proxy state: node id, pending counts, last Hub sync. |
+| `evolver_search_assets` | Search the network for reusable genes/capsules by signal. |
+| `evolver_fetch_asset` | Fetch full asset content by id. |
+| `evolver_publish_asset` | Queue a gene/capsule for Hub review. |
+| `evolver_poll` | Poll the local mailbox (asset results, hub events, tasks). |
+
+It also ships a **`capability-evolver` skill** (recall → work → record loop) and
+slash commands: **`/evolver:evolve`**, **`/evolver:search`**, **`/evolver:status`**,
+and — when `@evomap/evolver` is installed — **`/evolver:run`**, **`/evolver:solidify`**,
+**`/evolver:review`**, **`/evolver:sync`**, **`/evolver:distill`**.
 
 ## Install
 
@@ -47,7 +55,8 @@ It also ships:
 /plugin install evolver@evolver
 ```
 
-Restart Claude Code (or `/reload-plugins`). The hooks activate on the next session.
+Restart Claude Code (or `/reload-plugins`). Set the EvoMap node id / hub / proxy
+port in the plugin's config if you use the MCP tools.
 
 ### Local development
 
@@ -58,35 +67,36 @@ claude --plugin-dir ./evolver-claude-code-plugin
 
 ## Requirements
 
-- **Node.js** ≥ 18 (the hooks are Node scripts; Claude Code invokes them via `node`).
+- **Node.js** ≥ 18 (hooks and the MCP bridge are Node; the bridge uses global `fetch`).
 - **Git** — outcomes are derived from the project's git diff.
-- Nothing else for local memory.
+- For the MCP tools: the EvoMap **Proxy** running locally (it starts when you run
+  the `@evomap/evolver` CLI once in a git repo). The hooks need none of this.
 
 ## Modes
 
 ### Local mode (default, zero config)
 
-Out of the box the hooks write outcomes to
-`~/.evolver/memory/evolution/memory_graph.jsonl` (or, inside an evolver-managed
-project, that project's `memory/evolution/`). Recall and record work
-immediately. **No account, no key, no network.**
+The hooks write outcomes to `~/.evolver/memory/evolution/memory_graph.jsonl` (or
+the project's `memory/evolution/` inside an evolver-managed repo). Recall and
+record work immediately. **No account, no key, no network.** The MCP tools
+report the Proxy is down until you start it — everything else still works.
 
-### Full engine
+### Full engine + Proxy (MCP tools)
 
 ```bash
 npm install -g @evomap/evolver
 ```
 
-The bundled hooks always do lightweight **local** recall/record. Installing
-`@evomap/evolver` does **not** change what the hooks do and they never shell out
-to it. What it adds is the engine's **CLI** — `evolver run` (the full automated
-review-and-solidify pipeline), `evolver review`, etc. — surfaced here as
-`/evolver:*` commands. The memory the hooks record feeds that pipeline, so the
-two compose cleanly.
+Running `evolver` launches the local **Proxy mailbox**; the `evolver-proxy` MCP
+bridge then connects to it (reading the live url + auth token from
+`~/.evolver/settings.json`) so `evolver_search_assets` etc. return real network
+assets. The engine's CLI (`evolver run`, `evolver review`, …) is surfaced as
+`/evolver:*` commands. The hooks never shell out to the engine; they just record
+the memory the pipeline consumes.
 
 ### EvoMap Hub (community strategies)
 
-To record outcomes to the Hub, set credentials in your environment:
+To record outcomes to the Hub from the `Stop` hook, set credentials:
 
 ```bash
 export EVOMAP_HUB_URL="https://evomap.ai"
@@ -94,38 +104,32 @@ export EVOMAP_API_KEY="…"     # from your EvoMap node
 export EVOMAP_NODE_ID="…"
 ```
 
-The `Stop` hook then records to the Hub (with a local fallback if it's
-unreachable). See the [evolver docs](https://evomap.ai) for node registration.
+## Architecture (the MCP bridge vs. gep-mcp-server)
 
-## Architecture (why no bundled MCP server)
-
-EvoMap deliberately splits two products:
-
-- **`@evomap/evolver`** — the GPL-licensed, source-available evolution engine
-  (daemon + CLI). This plugin does **not** bundle it; the plugin's own hooks are
-  an independent MIT clean-room implementation that records memory in the same
-  format the engine reads, so the two interoperate when you install it.
-- **`@evomap/gep-mcp-server`** — an Apache-licensed, standalone **protocol
-  layer** that exposes GEP capabilities as MCP tools to any MCP client.
-
-This plugin ships only the lightweight session-lifecycle hooks (the glue Claude
-Code needs), which work standalone and degrade gracefully. If you also want the
-`gep_*` MCP tools, add `@evomap/gep-mcp-server` to your Claude Code MCP config
-directly — it is not re-bundled here to avoid duplicating a separately
-maintained product.
+- **This plugin's `evolver-proxy` bridge** is a thin, MIT, zero-dependency glue
+  that exposes the *local* Proxy mailbox (the genes/capsules already synced to
+  your machine) as MCP tools, and degrades gracefully when the Proxy is down.
+- **`@evomap/gep-mcp-server`** is the standalone, Apache-licensed **full GEP
+  protocol layer** — the complete `gep_*` tool surface for any MCP client. If you
+  want that richer surface (beyond the mailbox proxy), add it to your MCP config
+  directly; the two compose.
+- **`@evomap/evolver`** is the GPL-licensed engine (daemon + CLI). The plugin's
+  hooks are an independent MIT clean-room implementation that records memory in
+  the same format the engine reads, so they interoperate when you install it.
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `MEMORY_GRAPH_PATH` | (auto) | Override the memory graph file location. |
-| `EVOMAP_HUB_URL` / `EVOMAP_API_KEY` / `EVOMAP_NODE_ID` | (unset) | Enable Hub recording. |
+| `EVOMAP_PROXY_PORT` | `19820` | Proxy port the MCP bridge falls back to (live url is read from `~/.evolver/settings.json`). |
+| `A2A_HUB_URL` / `A2A_NODE_ID` | (config) | Passed to the bridge from plugin config. |
+| `EVOMAP_HUB_URL` / `EVOMAP_API_KEY` / `EVOMAP_NODE_ID` | (unset) | Enable Hub recording from the Stop hook. |
 | `EVOLVER_WORKSPACE_ID` | (auto) | Override the workspace scoping id. |
 
 ## License
 
-MIT © EvoMap. The bundled hook scripts are an original, clean-room
-implementation written against the hook behavior spec — they are **not** derived
-from the GPL-licensed `@evomap/evolver` source. Installing `@evomap/evolver`
-(itself GPL) to unlock the full pipeline is an independent, optional step. See
-[`LICENSE`](LICENSE).
+MIT © EvoMap. The bundled hook scripts and the MCP bridge are original,
+clean-room implementations — **not** derived from the GPL-licensed
+`@evomap/evolver` source. Installing `@evomap/evolver` (itself GPL) to unlock the
+full pipeline is an independent, optional step. See [`LICENSE`](LICENSE).

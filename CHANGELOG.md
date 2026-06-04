@@ -3,11 +3,31 @@
 All notable changes to the Evolver Claude Code plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-06-05
+
+### Added
+- **MCP bridge** `evolver-proxy` (MIT, zero-dependency stdio server) exposing the
+  local EvoMap Proxy mailbox as tools: `evolver_status`, `evolver_search_assets`,
+  `evolver_fetch_asset`, `evolver_publish_asset`, `evolver_poll`. Reads the live
+  Proxy url + auth token from `~/.evolver/settings.json`, sends
+  `Authorization: Bearer`, and degrades gracefully when the Proxy is down. (The
+  full `gep_*` surface remains the separate `@evomap/gep-mcp-server`.)
+- `/evolver:search` command (drives `evolver_search_assets`).
+- `userConfig` for node id, hub url, proxy port, and default strategy (wired into
+  the bridge env).
+
+### Notes
+- The MCP bridge was validated end-to-end against a real EvoMap Proxy: token auth,
+  `evolver_status` and `evolver_search_assets` returning real network assets.
+- Restores the MCP surface that the v0.1.0 mirror had dropped — it was only
+  omitted to match the Cursor plugin, which had unrelated load issues; with the
+  bridge working it belongs in both.
+
 ## [0.1.0] — 2026-06-05
 
 Initial public release. Mirrors the
 [Evolver Cursor plugin](https://github.com/EvoMap/evolver-cursor-plugin): same
-MIT clean-room hooks, same memory format, no bundled MCP.
+MIT clean-room hooks, same memory format.
 
 ### Added
 - **Hooks** (MIT, clean-room — not derived from the GPL `@evomap/evolver` source):
@@ -20,14 +40,6 @@ MIT clean-room hooks, same memory format, no bundled MCP.
   (16-byte hex, `0600`, `O_EXCL`+`O_NOFOLLOW`) and `workspace_id`/`cwd`-tagged
   memory entries — interoperable with the `@evomap/evolver` engine and the
   Cursor plugin, and preventing cross-project memory leakage.
-- **Skill** `capability-evolver` (recall → work → record loop).
-- **Commands**: `/evolve`, `/status`, and engine wrappers `/run`, `/solidify`,
-  `/review`, `/sync`, `/distill` (the latter use the `@evomap/evolver` CLI when
-  installed, else fall back to `npx -y @evomap/evolver`).
-- MIT license; EvoMap logo.
-
-### Architecture
-- **No bundled MCP server** — the `gep_*` MCP tool surface is the separately
-  maintained [`@evomap/gep-mcp-server`](https://github.com/EvoMap/gep-mcp-server).
-- Single-plugin repository layout (`.claude-plugin/` at root; `source: "./"`),
-  matching the Cursor plugin.
+- **Skill** `capability-evolver`; commands `/evolve`, `/status`, `/run`,
+  `/solidify`, `/review`, `/sync`, `/distill`.
+- MIT license; EvoMap logo; single-plugin repository layout.

@@ -74,9 +74,17 @@ auto-detect or invoke it. The memory the hooks record is what the pipeline
 consumes. See the plugin README for connecting an EvoMap Hub node for community
 strategies.
 
-## MCP tools (separate product)
+## MCP tools
 
-This plugin deliberately ships **no MCP server**. The `gep_*` MCP tool surface
-is provided by the standalone [`@evomap/gep-mcp-server`](https://github.com/EvoMap/gep-mcp-server);
-add it to your MCP config directly if you want those tools. Keeping it separate
-avoids re-bundling a separately-maintained product.
+This plugin bundles a lightweight MCP bridge (`evolver-proxy`) exposing the local
+EvoMap Proxy mailbox:
+
+- `evolver_search_assets` — find reusable genes/capsules by signal. **Call this
+  before substantive work** to reuse proven approaches instead of reinventing them.
+- `evolver_status` — Proxy state (node id, pending counts, last sync).
+- `evolver_fetch_asset` / `evolver_publish_asset` / `evolver_poll`.
+
+The tools degrade gracefully when the Proxy isn't running (the local memory hooks
+still work). The richer, full `gep_*` surface is the separate
+[`@evomap/gep-mcp-server`](https://github.com/EvoMap/gep-mcp-server) — add it to
+your MCP config if you want it; the two compose.
