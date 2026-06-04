@@ -1,0 +1,29 @@
+{
+  "name": "evomap",
+  "description": "Official Claude Code marketplace for EvoMap — home of Evolver, the GEP-powered self-evolution engine for AI agents.",
+  "owner": {
+    "name": "EvoMap",
+    "email": "team@evomap.ai",
+    "url": "https://evomap.ai"
+  },
+  "version": "0.1.0",
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "evolver",
+      "source": "./plugins/evolver",
+      "displayName": "Evolver",
+      "description": "Self-evolution for your Claude Code agent: auto-injects past evolution memory, detects evolution signals while you work, records outcomes, and exposes the EvoMap Proxy mailbox (genes & capsules) as MCP tools and slash commands.",
+      "version": "0.1.0",
+      "author": { "name": "EvoMap", "email": "team@evomap.ai", "url": "https://evomap.ai" },
+      "homepage": "https://evomap.ai",
+      "repository": "https://github.com/EvoMap/evolver",
+      "license": "GPL-3.0-or-later",
+      "category": "ai",
+      "keywords": ["evomap", "evolution", "gep", "self-improvement", "meta-learning", "agent", "ai", "memory"],
+      "strict": true
+    }
+  ]
+}

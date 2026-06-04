@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "evolver",
+  "displayName": "Evolver",
+  "version": "0.1.0",
+  "description": "Self-evolution for your Claude Code agent. Auto-injects recent evolution memory at session start, detects evolution signals while you edit, records session outcomes, and bridges the EvoMap Proxy mailbox (genes & capsules) into Claude via MCP tools and slash commands. Powered by @evomap/evolver.",
+  "author": {
+    "name": "EvoMap",
+    "email": "team@evomap.ai",
+    "url": "https://evomap.ai"
+  },
+  "homepage": "https://evomap.ai",
+  "repository": "https://github.com/EvoMap/evolver",
+  "license": "GPL-3.0-or-later",
+  "keywords": [
+    "evomap",
+    "evolution",
+    "gep",
+    "self-improvement",
+    "meta-learning",
+    "agent",
+    "ai",
+    "memory"
+  ],
+  "userConfig": {
+    "node_id": {
+      "type": "string",
+      "title": "EvoMap Node ID (A2A_NODE_ID)",
+      "description": "Your EvoMap node identity. Leave blank to let the Proxy register one on first run.",
+      "default": ""
+    },
+    "hub_url": {
+      "type": "string",
+      "title": "EvoMap Hub URL (A2A_HUB_URL)",
+      "description": "Base URL of the EvoMap Hub the Proxy talks to.",
+      "default": "https://evomap.ai"
+    },
+    "proxy_port": {
+      "type": "string",
+      "title": "Proxy port (EVOMAP_PROXY_PORT)",
+      "description": "Local Proxy mailbox port that the MCP bridge connects to.",
+      "default": "19820"
+    },
+    "strategy": {
+      "type": "string",
+      "title": "Evolution strategy (EVOLVE_STRATEGY)",
+      "description": "balanced | innovate | harden | repair-only | early-stabilize | steady-state | auto",
+      "default": "balanced"
+    }
+  }
+}
