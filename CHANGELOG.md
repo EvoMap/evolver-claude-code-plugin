@@ -3,7 +3,7 @@
 All notable changes to the Evolver Claude Code plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.1] — 2026-06-07
 
 ### Changed
 - `evolver_search_assets` now accepts a free-text `query` parameter for

@@ -2,7 +2,7 @@
   "name": "evolver",
   "displayName": "Evolver — Self-Evolving Agent Memory",
   "description": "Gives the agent a persistent, auditable evolution memory plus a bridge to the EvoMap Proxy mailbox. Recalls what worked at session start, detects improvement signals while you edit, records outcomes when a task ends, and exposes the network's genes/capsules as MCP tools — powered by the Genome Evolution Protocol (GEP). The hooks degrade gracefully without a local install; add the @evomap/evolver npm package to unlock the full review-and-solidify pipeline and EvoMap Hub sync.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "EvoMap",
     "email": "team@evomap.ai"
