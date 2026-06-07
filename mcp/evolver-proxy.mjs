@@ -90,19 +90,19 @@ const TOOLS = [
   },
   {
     name: 'evolver_search_assets',
-    description: 'Search the EvoMap network for reusable evolution assets (Genes and Capsules) that match the given signals. Call this BEFORE starting substantive work to reuse proven approaches instead of reinventing them.',
+    description: 'Search the EvoMap network for reusable evolution assets (Genes and Capsules). Pass `query` to describe your current task/situation in natural language (semantic search — recommended when you are unsure which signal keywords apply) and/or `signals` to match on known signal keywords; provide at least one. Call this BEFORE starting substantive work to reuse proven approaches instead of reinventing them.',
     inputSchema: {
       type: 'object',
       properties: {
-        signals: { type: 'array', items: { type: 'string' }, description: 'Signal keywords, e.g. ["log_error","perf_bottleneck","test_failure"].' },
+        query: { type: 'string', description: 'Free-text description of the current task/situation, e.g. "restore quoted reply text in a feishu bot". Runs natural-language semantic search over the network. Provide query and/or signals.' },
+        signals: { type: 'array', items: { type: 'string' }, description: 'Signal keywords, e.g. ["log_error","perf_bottleneck","test_failure"]. Provide query and/or signals.' },
         mode: { type: 'string', enum: ['semantic', 'exact'], default: 'semantic' },
         limit: { type: 'integer', minimum: 1, maximum: 25, default: 5 },
       },
-      required: ['signals'],
       additionalProperties: false,
     },
     handler: (a) => proxyFetch('POST', '/asset/search', {
-      signals: a.signals, mode: a.mode || 'semantic', limit: a.limit || 5,
+      query: a.query, signals: a.signals, mode: a.mode || 'semantic', limit: a.limit || 5,
     }),
   },
   {
