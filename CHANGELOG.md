@@ -3,6 +3,16 @@
 All notable changes to the Evolver Claude Code plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- `evolver_search_assets` now accepts a free-text `query` parameter for
+  natural-language semantic search ("what asset fits my current situation?"),
+  alongside the existing `signals` keyword array — provide either or both;
+  `signals` is no longer required. Pairs with the companion proxy change
+  (EvoMap/evolver-private-dev#208) that routes a free-text `query` to the hub's
+  existing `semantic-search` endpoint.
+
 ## [0.2.0] — 2026-06-05
 
 ### Added
