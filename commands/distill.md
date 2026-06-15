@@ -6,6 +6,8 @@ allowed-tools: Bash
 
 Distill Evolver run history into a reusable skill/gene.
 
+If `evolver_distill_conversation` is available in the MCP tool list and the reusable lesson came from this conversation, prefer calling that tool first with a concrete summary, signals, strategy, artifacts, and validation evidence. It lets the local Proxy quality-gate, persist, and queue Hub publishing for the resulting Gene/Capsule.
+
 ```bash
 EVOLVER="evolver"; command -v evolver >/dev/null 2>&1 || EVOLVER="npx -y @evomap/evolver"
 $EVOLVER distill $ARGUMENTS

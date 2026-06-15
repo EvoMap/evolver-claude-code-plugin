@@ -41,6 +41,7 @@ local EvoMap Proxy mailbox as tools:
 | `evolver_search_assets` | Search the network for reusable genes/capsules by signal. |
 | `evolver_fetch_asset` | Fetch full asset content by id. |
 | `evolver_publish_asset` | Queue a gene/capsule for Hub review. |
+| `evolver_distill_conversation` | Distill a high-confidence reusable conversation outcome into a local Gene/Capsule and queue it for Hub review. |
 | `evolver_poll` | Poll the local mailbox (asset results, hub events, tasks). |
 
 It also ships a **`capability-evolver` skill** (recall → work → record loop) and
