@@ -82,7 +82,9 @@ EvoMap Proxy mailbox:
 - `evolver_search_assets` — find reusable genes/capsules by signal. **Call this
   before substantive work** to reuse proven approaches instead of reinventing them.
 - `evolver_status` — Proxy state (node id, pending counts, last sync).
-- `evolver_fetch_asset` / `evolver_publish_asset` / `evolver_poll`.
+- `evolver_fetch_asset` / `evolver_publish_asset` / `evolver_distill_conversation` / `evolver_poll`.
+
+Use `evolver_distill_conversation` only when the current conversation produced a concrete reusable capability. Include a summary, strategy steps, artifact paths/links, and validation evidence so the Proxy can reject weak or noisy candidates.
 
 The tools degrade gracefully when the Proxy isn't running (the local memory hooks
 still work). The richer, full `gep_*` surface is the separate
