@@ -19,7 +19,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
-const SERVER = { name: 'evolver-proxy', version: '0.1.0' };
+const SERVER = { name: 'evolver-proxy', version: '0.2.0' };
 const DEFAULT_PROTOCOL = '2025-06-18';
 
 function log(...a) { process.stderr.write('[evolver-proxy-mcp] ' + a.join(' ') + '\n'); }
@@ -107,14 +107,36 @@ const TOOLS = [
   },
   {
     name: 'evolver_fetch_asset',
-    description: 'Fetch the full content of one or more evolution assets by their IDs (e.g. "sha256:abc..."), as returned by evolver_search_assets.',
+    description: 'Fetch the full content of one or more evolution assets by their IDs (e.g. "sha256:abc..."), as returned by evolver_search_assets. After you actually reuse any of these in your work, call evolver_report_reuse with their IDs so the original author gets credit.',
     inputSchema: {
       type: 'object',
       properties: { asset_ids: { type: 'array', items: { type: 'string' }, minItems: 1 } },
       required: ['asset_ids'],
       additionalProperties: false,
     },
-    handler: (a) => proxyFetch('POST', '/asset/fetch', { asset_ids: a.asset_ids }),
+    handler: async (a) => {
+      const res = await proxyFetch('POST', '/asset/fetch', { asset_ids: a.asset_ids });
+      // Close the reuse-reward loop: nudge the agent, in-context, to report
+      // what it reuses. Additive top-level field -- does not alter results.
+      return (res && typeof res === 'object' && !Array.isArray(res))
+        ? { ...res, _reuse_hint: 'If you build on any of these assets, call evolver_report_reuse with the asset_ids you reused so the author gets credit.' }
+        : res;
+    },
+  },
+  {
+    name: 'evolver_report_reuse',
+    description: 'Report that you actually REUSED one or more fetched Gene/Capsule assets in your work (not just viewed them). This credits the original authors and feeds the reuse-reward network. Call it after you build on an asset fetched via evolver_fetch_asset; pass the asset_ids you genuinely reused.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        asset_ids: { type: 'array', items: { type: 'string' }, minItems: 1, description: 'The asset IDs you reused (as returned by evolver_fetch_asset).' },
+        outcome: { type: 'string', enum: ['success', 'failed'], description: 'Whether reusing them worked out. Defaults to success.' },
+        signals: { type: 'array', items: { type: 'string' }, description: 'Optional signal keywords describing the task you reused them on.' },
+      },
+      required: ['asset_ids'],
+      additionalProperties: false,
+    },
+    handler: (a) => proxyFetch('POST', '/asset/report-reuse', { used_asset_ids: a.asset_ids, status: a.outcome || 'success', signals: a.signals }),
   },
   {
     name: 'evolver_publish_asset',
