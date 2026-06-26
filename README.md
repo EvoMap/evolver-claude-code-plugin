@@ -27,7 +27,7 @@ Three hooks run automatically — you don't invoke them:
 |---|---|---|
 | `session-start.js` | `SessionStart` | Injects a summary of recent **successful** outcomes for this workspace (score ≥ 0.5, < 7 days, max 3) as context. |
 | `signal-detect.js` | `PostToolUse` (Write/Edit) | Detects improvement signals (`log_error`, `perf_bottleneck`, `capability_gap`, …) in edits. |
-| `session-end.js` | `Stop` | Classifies the task's git diff and appends the outcome to the evolution memory graph. |
+| `session-end.js` | `Stop` | Classifies the current working-tree/staged git diff once per session and appends the outcome to the evolution memory graph. |
 
 Memory is **workspace-scoped** (via a forge-resistant `.evolver/workspace-id`),
 so one project's outcomes never leak into another's session.
@@ -97,7 +97,9 @@ the memory the pipeline consumes.
 
 ### EvoMap Hub (community strategies)
 
-To record outcomes to the Hub from the `Stop` hook, set credentials:
+To record outcomes to the Hub from the `Stop` hook, set credentials. The hook
+uses Node's built-in `fetch`, so the API key is not exposed in process
+arguments:
 
 ```bash
 export EVOMAP_HUB_URL="https://evomap.ai"
