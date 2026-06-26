@@ -14,15 +14,27 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 
 const { resolveProjectDir, findMemoryGraph, resolveWorkspaceId } = require('./_paths');
 const { detectSignals } = require('./_signals');
 
-const STDIN_WATCHDOG_MS = 7000;
+const STDIN_WATCHDOG_MS = parsePositiveInt(
+  process.env.EVOLVER_SESSION_END_STDIN_WATCHDOG_MS,
+  7000
+);
 const GIT_TIMEOUT_MS = 5000;
 const GIT_MAX_BUFFER = 10 * 1024 * 1024; // 10 MB
 const HUB_TIMEOUT_MS = 8000;
+const SESSION_END_DEDUPE_TTL_MS = parsePositiveInt(
+  process.env.EVOLVER_SESSION_END_DEDUPE_TTL_MS,
+  6 * 60 * 60 * 1000
+);
+const SESSION_END_PRUNE_MS = Math.max(
+  SESSION_END_DEDUPE_TTL_MS,
+  24 * 60 * 60 * 1000
+);
 
 let alreadyEmitted = false;
 
@@ -58,6 +70,11 @@ function appendEvolutionLog(line) {
   }
 }
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value || '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /** Run a git subcommand in `cwd`, returning { status, stdout } (stdout = ''). */
 function git(args, cwd) {
   try {
@@ -80,28 +97,44 @@ function git(args, cwd) {
 
 /**
  * Collect the git diff for the session.
- *   - statText: output of `git diff --stat HEAD~1`, falling back to plain diff.
- *   - body: output of `git diff --no-color HEAD~1`, likewise with fallback.
+ *   - statText/body cover the current working tree and staged diff only.
  *   - isRepo: whether we're inside a git work tree.
  */
 function collectDiff(projectDir) {
   const insideTree = git(['rev-parse', '--is-inside-work-tree'], projectDir);
   const isRepo = insideTree.status === 0 && insideTree.stdout.trim() === 'true';
-
-  let stat = git(['diff', '--stat', 'HEAD~1'], projectDir);
-  if (stat.status !== 0) {
-    stat = git(['diff', '--stat'], projectDir);
+  if (!isRepo) {
+    return {
+      isRepo,
+      statText: '',
+      body: '',
+    };
   }
 
-  let body = git(['diff', '--no-color', 'HEAD~1'], projectDir);
-  if (body.status !== 0) {
-    body = git(['diff', '--no-color'], projectDir);
+  const statParts = [];
+  const unstagedStat = git(['diff', '--stat', '--'], projectDir);
+  if (unstagedStat.status === 0 && unstagedStat.stdout.trim().length > 0) {
+    statParts.push(unstagedStat.stdout);
+  }
+  const stagedStat = git(['diff', '--cached', '--stat', '--'], projectDir);
+  if (stagedStat.status === 0 && stagedStat.stdout.trim().length > 0) {
+    statParts.push(stagedStat.stdout);
+  }
+
+  const bodyParts = [];
+  const unstagedBody = git(['diff', '--no-color', '--'], projectDir);
+  if (unstagedBody.status === 0 && unstagedBody.stdout.trim().length > 0) {
+    bodyParts.push(unstagedBody.stdout);
+  }
+  const stagedBody = git(['diff', '--cached', '--no-color', '--'], projectDir);
+  if (stagedBody.status === 0 && stagedBody.stdout.trim().length > 0) {
+    bodyParts.push(stagedBody.stdout);
   }
 
   return {
     isRepo,
-    statText: stat.stdout || '',
-    body: body.stdout || '',
+    statText: statParts.join('\n'),
+    body: bodyParts.join('\n'),
   };
 }
 
@@ -110,53 +143,142 @@ function collectDiff(projectDir) {
  * Missing pieces default to 0.
  */
 function parseStat(statText) {
-  const files = (statText.match(/(\d+)\s+files?\s+changed/) || [])[1];
-  const ins = (statText.match(/(\d+)\s+insertions?\(\+\)/) || [])[1];
-  const del = (statText.match(/(\d+)\s+deletions?\(-\)/) || [])[1];
+  function sum(regex) {
+    let total = 0;
+    for (const match of statText.matchAll(regex)) {
+      total += parseInt(match[1], 10);
+    }
+    return total;
+  }
   return {
-    files: files ? parseInt(files, 10) : 0,
-    insertions: ins ? parseInt(ins, 10) : 0,
-    deletions: del ? parseInt(del, 10) : 0,
+    files: sum(/(\d+)\s+files?\s+changed/g),
+    insertions: sum(/(\d+)\s+insertions?\(\+\)/g),
+    deletions: sum(/(\d+)\s+deletions?\(-\)/g),
   };
 }
 
-/**
- * Attempt to POST the outcome to a configured Hub via curl. Returns true on a
- * zero-exit curl. Never throws.
- */
-function recordToHub(payload) {
+function hashText(text) {
+  return crypto.createHash('sha256').update(String(text || '')).digest('hex');
+}
+
+function parseInput(raw) {
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_err) {
+    return {};
+  }
+}
+
+function extractSessionId(input) {
+  const props = input && input.properties && typeof input.properties === 'object'
+    ? input.properties
+    : {};
+  const info = props.info && typeof props.info === 'object' ? props.info : {};
+  const session = input && input.session && typeof input.session === 'object'
+    ? input.session
+    : {};
+  const candidates = [
+    input && input.session_id,
+    input && input.sessionId,
+    input && input.sessionID,
+    session.id,
+    session.session_id,
+    props.session_id,
+    props.sessionId,
+    props.sessionID,
+    info.id,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+function claimSessionRecord({ projectDir, workspaceId, sessionId, diffHash }) {
+  try {
+    const base =
+      process.env.EVOLVER_SESSION_STATE_DIR ||
+      path.join(os.homedir(), '.evolver');
+    const stateFile = path.join(base, 'session-end-state.json');
+
+    let state = {};
+    try {
+      state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      if (!state || typeof state !== 'object' || Array.isArray(state)) {
+        state = {};
+      }
+    } catch (_err) {
+      state = {};
+    }
+
+    const now = Date.now();
+    const key = sessionId
+      ? `session:${sessionId}`
+      : `workspace:${workspaceId || projectDir}:diff:${diffHash}`;
+    const previous = state[key];
+    const previousTs = typeof previous === 'number'
+      ? previous
+      : previous && typeof previous.ts === 'number'
+        ? previous.ts
+        : 0;
+    if (previousTs > 0 && now - previousTs < SESSION_END_DEDUPE_TTL_MS) {
+      return { claimed: false, key };
+    }
+
+    state[key] = { ts: now, diff_hash: diffHash };
+    for (const existingKey of Object.keys(state)) {
+      const value = state[existingKey];
+      const ts = typeof value === 'number'
+        ? value
+        : value && typeof value.ts === 'number'
+          ? value.ts
+          : 0;
+      if (ts <= 0 || now - ts > SESSION_END_PRUNE_MS) {
+        delete state[existingKey];
+      }
+    }
+
+    fs.mkdirSync(base, { recursive: true });
+    const tmp = `${stateFile}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(state), { mode: 0o600 });
+    fs.renameSync(tmp, stateFile);
+    return { claimed: true, key };
+  } catch (_err) {
+    return { claimed: true, key: null };
+  }
+}
+
+/** Attempt to POST the outcome to a configured Hub. Never throws. */
+async function recordToHub(payload) {
   try {
     const hubUrl = process.env.EVOMAP_HUB_URL || process.env.A2A_HUB_URL;
     const apiKey = process.env.EVOMAP_API_KEY || process.env.A2A_NODE_SECRET;
-    if (!hubUrl || !apiKey) {
+    if (!hubUrl || !apiKey || typeof fetch !== 'function') {
       return false;
     }
-    const url = `${hubUrl.replace(/\/+$/, '')}/a2a/evolution/record`;
-    const result = spawnSync(
-      'curl',
-      [
-        '-s',
-        '-S',
-        '-X',
-        'POST',
-        '-H',
-        'Content-Type: application/json',
-        '-H',
-        `Authorization: Bearer ${apiKey}`,
-        '--max-time',
-        '8',
-        '--data-binary',
-        JSON.stringify(payload),
-        url,
-      ],
-      {
-        shell: false,
-        timeout: HUB_TIMEOUT_MS,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    );
-    return result.status === 0;
+    const url = new URL('/a2a/evolution/record', `${hubUrl.replace(/\/+$/, '')}/`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HUB_TIMEOUT_MS);
+    if (typeof timer.unref === 'function') {
+      timer.unref();
+    }
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      return response.ok;
+    } finally {
+      clearTimeout(timer);
+    }
   } catch (_err) {
     return false;
   }
@@ -178,9 +300,10 @@ function recordToLocal(entry, projectDir) {
   }
 }
 
-function finish(projectDir, diff) {
+async function finish(projectDir, diff, input) {
   const stats = parseStat(diff.statText);
-  const hasChanges = diff.statText.trim().length > 0;
+  const hasChanges =
+    diff.statText.trim().length > 0 || diff.body.trim().length > 0;
 
   // No changes: just leave a breadcrumb, never a memory-graph entry.
   if (!hasChanges) {
@@ -188,6 +311,23 @@ function finish(projectDir, diff) {
       ? 'no changes detected this session'
       : 'not a git workspace';
     appendEvolutionLog(`[Evolution] Session end: nothing recorded (${reason}).`);
+    emit({});
+    return;
+  }
+
+  const workspaceId = resolveWorkspaceId(projectDir);
+  const sessionId = extractSessionId(input || {});
+  const diffHash = hashText(diff.body || diff.statText);
+  const claim = claimSessionRecord({
+    projectDir,
+    workspaceId,
+    sessionId,
+    diffHash,
+  });
+  if (!claim.claimed) {
+    appendEvolutionLog(
+      `[Evolution] Session end: duplicate outcome suppressed (${claim.key}).`
+    );
     emit({});
     return;
   }
@@ -206,12 +346,15 @@ function finish(projectDir, diff) {
     `+${stats.insertions}/-${stats.deletions}. Signals: [${signals.join(', ')}]`;
 
   // Try the Hub first (if configured).
-  const hubOk = recordToHub({
+  const hubOk = await recordToHub({
     gene_id: 'ad_hoc',
     signals,
     status,
     score,
     summary,
+    session_id: sessionId,
+    workspace_id: workspaceId,
+    diff_hash: diffHash,
     sender_id: process.env.EVOMAP_NODE_ID || process.env.A2A_NODE_ID,
   });
 
@@ -223,7 +366,10 @@ function finish(projectDir, diff) {
       signals,
       outcome: { status, score, note: summary },
       cwd: projectDir,
-      workspace_id: resolveWorkspaceId(projectDir),
+      workspace_id: workspaceId,
+      session_id: sessionId,
+      diff_hash: diffHash,
+      diff_scope: 'working_tree',
       source: 'hook:session-end',
     },
     projectDir
@@ -242,10 +388,10 @@ function finish(projectDir, diff) {
   emit({ systemMessage: receipt });
 }
 
-// Drain stdin (we don't use it) with a watchdog, then do the work.
+// Drain stdin with a watchdog, then do the work.
 (function run() {
   try {
-    const projectDir = resolveProjectDir();
+    let buffer = '';
     let done = false;
 
     const proceed = () => {
@@ -254,8 +400,12 @@ function finish(projectDir, diff) {
       }
       done = true;
       try {
+        const input = parseInput(buffer);
+        const projectDir = resolveProjectDir(input);
         const diff = collectDiff(projectDir);
-        finish(projectDir, diff);
+        Promise.resolve(finish(projectDir, diff, input)).catch(() => {
+          emit({});
+        });
       } catch (_err) {
         emit({});
       }
@@ -270,7 +420,10 @@ function finish(projectDir, diff) {
       watchdog.unref();
     }
 
-    process.stdin.on('data', () => {});
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => {
+      buffer += chunk;
+    });
     process.stdin.on('end', () => {
       clearTimeout(watchdog);
       proceed();

@@ -3,6 +3,18 @@
 All notable changes to the Evolver Claude Code plugin are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] — 2026-06-25
+
+### Fixed
+- `Stop` outcome recording now inspects only current working-tree and staged
+  changes, not `HEAD~1`, and suppresses duplicate records for the same session
+  or unchanged diff.
+- Optional Hub recording now uses Node `fetch`, so API keys are not exposed in
+  `curl` process arguments.
+- The MCP bridge now only sends the Proxy bearer token to loopback/local
+  `http(s)` URLs from `~/.evolver/settings.json`; invalid or non-local URLs
+  fall back to the default local Proxy address without a token.
+
 ## [0.2.1] — 2026-06-07
 
 ### Changed
