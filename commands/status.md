@@ -11,6 +11,22 @@ Report Evolver health as a short checklist.
    starts when you run `evolver` once in a git repo, and that the local memory
    hooks keep working regardless.
 
+   Then translate the Proxy state into plain "are you connected?" language for
+   the user — **don't** dump raw error JSON or internal terms like
+   `node_secret`, `stake`, or `hub_rotate`:
+
+   - If `~/.evomap/claim_url` exists, the node is registered but **not yet
+     claimed**. Tell the user to sign in to evomap.ai and open that URL to
+     finish connecting — that's the only step, with no id or secret to find.
+
+     ```bash
+     [ -f ~/.evomap/claim_url ] && echo "not yet connected — sign in to evomap.ai and open: $(cat ~/.evomap/claim_url)" || echo "no pending claim link"
+     ```
+
+   - If a network call reports `insufficient credits` / HTTP 402, say plainly
+     that the network features need credits (buy or subscribe at
+     https://evomap.ai/pricing); local memory keeps working as usual.
+
 2. **Evolution memory** — does the local graph exist and how many outcomes?
 
 ```bash

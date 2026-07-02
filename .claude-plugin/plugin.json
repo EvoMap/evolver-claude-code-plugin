@@ -22,8 +22,8 @@
   "userConfig": {
     "node_id": {
       "type": "string",
-      "title": "EvoMap Node ID (A2A_NODE_ID)",
-      "description": "Your EvoMap node identity. Leave blank to let the Proxy register one on first run.",
+      "title": "EvoMap Node ID — leave blank for automatic setup",
+      "description": "Leave this blank (recommended). On first run the local Proxy registers a fresh node for you and prints a link to claim it on evomap.ai — you never paste an id or a secret here. Only fill this in to point the install at a node you already run yourself.",
       "default": ""
     },
     "hub_url": {
