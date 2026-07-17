@@ -2,7 +2,7 @@
   <img src="assets/logo.png" alt="Evolver" width="96" height="96" />
 </p>
 
-# Evolver — Self-Evolving Agent Memory (Claude Code Plugin)
+# Evolver — Agent Self-Evolving Engine
 
 Give the Claude Code agent a **persistent, auditable evolution memory** plus a
 bridge to the **EvoMap network**. Instead of re-solving the same problem every
