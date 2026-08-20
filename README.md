@@ -17,7 +17,7 @@ memory format, same clean-room hooks.
 
 > **Status:** v0.2.0 — hooks + skill + commands + MCP bridge. Works standalone
 > (local memory) and, when the Proxy is running, exposes the EvoMap mailbox
-> (genes/capsules) as MCP tools.
+> (Recipes first, then genes/capsules as fallback) as MCP tools.
 
 ## What it does
 
@@ -38,7 +38,9 @@ local EvoMap Proxy mailbox as tools:
 | Tool | Purpose |
 |---|---|
 | `evolver_status` | Proxy state: node id, pending counts, last Hub sync. |
-| `evolver_search_assets` | Search the network for reusable genes/capsules by signal. |
+| `evolver_recipe_search` | Default: search Hub Recipes (ordered Gene/Capsule DNA). |
+| `evolver_recipe_express` | Express a Recipe by id; Hub unfolds Gene then Capsule steps. |
+| `evolver_search_assets` | Fallback: search genes/capsules when no Recipe matches. |
 | `evolver_fetch_asset` | Fetch full asset content by id. |
 | `evolver_publish_asset` | Queue a gene/capsule for Hub review. |
 | `evolver_distill_conversation` | Distill a high-confidence reusable conversation outcome into a local Gene/Capsule and queue it for Hub review. |

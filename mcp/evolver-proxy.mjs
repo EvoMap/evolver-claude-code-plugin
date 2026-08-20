@@ -4,7 +4,7 @@
 /**
  * Evolver Proxy MCP bridge (stdio, zero dependencies).
  *
- * Exposes the EvoMap local Proxy mailbox — genes, capsules, status — as MCP
+ * Exposes the EvoMap local Proxy mailbox — recipes, genes, capsules, status — as MCP
  * tools so Claude can search/reuse/publish evolution assets natively.
  *
  * Transport: newline-delimited JSON-RPC 2.0 over stdin/stdout (MCP stdio).
@@ -119,8 +119,59 @@ const TOOLS = [
     handler: () => proxyFetch('GET', '/proxy/status'),
   },
   {
+    name: 'evolver_recipe_search',
+    description: 'Default first step: search Hub Recipes (ordered Gene/Capsule DNA) via the local Evolver Proxy. On a hit, call evolver_recipe_express. If nothing matches, fall back to evolver_search_assets. Omit q to list published Recipes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        q: { type: 'string', description: 'Free-text Recipe query. Omit to list published Recipes.' },
+        query: { type: 'string', description: 'Alias of q.' },
+        text: { type: 'string', description: 'Alias of q.' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
+        cursor: { type: 'string' },
+        sort: { type: 'string' },
+      },
+      additionalProperties: false,
+    },
+    handler: (a) => {
+      const q = [a.q, a.query, a.text].find((value) => typeof value === 'string' && value.trim().length > 0);
+      return proxyFetch('POST', '/recipe/search', {
+        ...(q ? { q } : {}),
+        ...(typeof a.limit === 'number' ? { limit: a.limit } : {}),
+        ...(typeof a.cursor === 'string' && a.cursor.trim() ? { cursor: a.cursor } : {}),
+        ...(typeof a.sort === 'string' && a.sort.trim() ? { sort: a.sort } : {}),
+      });
+    },
+  },
+  {
+    name: 'evolver_recipe_express',
+    description: 'Express a Hub Recipe by id. Forwards only to Proxy POST /recipe/express (Hub POST /a2a/recipe/{id}/express). Hub unfolds Gene then Capsule steps; do not parse recipe JSON locally. Prefer this after evolver_recipe_search.',
+    inputSchema: {
+      type: 'object',
+      required: ['recipeId'],
+      properties: {
+        recipeId: { type: 'string', description: 'Hub Recipe id from evolver_recipe_search.' },
+        inputPayload: { type: 'object', description: 'Optional JSON object forwarded as input_payload.' },
+      },
+      additionalProperties: false,
+    },
+    handler: (a) => {
+      const recipeId = typeof a.recipeId === 'string' ? a.recipeId.trim() : '';
+      if (!recipeId) {
+        return Promise.resolve({ ok: false, error: 'Provide a `recipeId` from evolver_recipe_search.' });
+      }
+      const inputPayload = a.inputPayload && typeof a.inputPayload === 'object' && !Array.isArray(a.inputPayload)
+        ? a.inputPayload
+        : undefined;
+      return proxyFetch('POST', '/recipe/express', {
+        recipe_id: recipeId,
+        ...(inputPayload ? { input_payload: inputPayload } : {}),
+      });
+    },
+  },
+  {
     name: 'evolver_search_assets',
-    description: 'Search the EvoMap network for reusable evolution assets (Genes and Capsules). Pass `query` to describe your current task/situation in natural language (semantic search — recommended when you are unsure which signal keywords apply) and/or `signals` to match on known signal keywords; provide at least one. Call this BEFORE starting substantive work to reuse proven approaches instead of reinventing them.',
+    description: 'Fallback: search the EvoMap network for Genes and Capsules when evolver_recipe_search has no Recipe hit. Pass `query` and/or `signals`. Real networked reuse should go through evolver_recipe_express so Hub unfolds the steps.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -265,7 +316,7 @@ async function dispatch(req) {
         protocolVersion: params?.protocolVersion || DEFAULT_PROTOCOL,
         capabilities: { tools: {} },
         serverInfo: SERVER,
-        instructions: 'Evolver Proxy bridge. Use evolver_search_assets before substantive work to reuse proven genes/capsules; evolver_status to check the Proxy; evolver_publish_asset to contribute new ones.',
+        instructions: 'Evolver Proxy bridge. Use evolver_recipe_search then evolver_recipe_express before substantive networked work. evolver_search_assets is Gene/Capsule fallback when no Recipe hits. evolver_status to check the Proxy; evolver_publish_asset to contribute new ones.',
       });
     case 'notifications/initialized':
     case 'initialized':
