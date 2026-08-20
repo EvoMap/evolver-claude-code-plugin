@@ -5,6 +5,11 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- MCP bridge is Recipe-first: `evolver_recipe_search` then `evolver_recipe_express`
+  against Proxy `/recipe/search` and `/recipe/express`. `evolver_search_assets`
+  remains as Gene/Capsule fallback when no Recipe hits.
+
 ### Changed — onboarding UX
 - `node_id` config field reworded to make **leaving it blank** the clear default:
   the title now reads "leave blank for automatic setup" and the description
